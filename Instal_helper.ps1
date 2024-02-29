@@ -1,6 +1,10 @@
 # Указываем путь к сетевой папке
 $path = '\\путь\к\папке\с\установщиками'
 
+# Создаем лог-файл
+$logFile = "C:\logs\installation_log.txt"
+Add-Content -Path $logFile -Value "Начало лога $(Get-Date)" -Force
+
 # Функция для поиска установочных файлов в папке
 function Find-InstallationFiles {
     param (
@@ -21,7 +25,7 @@ function Find-InstallationFiles {
             $fileInfo = Get-ItemProperty -Path $file.FullName
 
             # Добавляем информацию о файле в массив результатов с учетом текущего значения счетчика
-            $results += "$($count.Value)) $($fileInfo.Name) $('разрешение:') $($fileInfo.Extension)"
+            $results += "$($count.Value)) $($fileInfo.Name) - $($file.FullName)"
             $count.Value++
         }
     }
@@ -36,6 +40,24 @@ function Find-InstallationFiles {
     return ,$results  # Возвращаем массив результатов как один объект
 }
 
+# Функция для установки выбранного пакета
+function Install-SelectedPackage {
+    param (
+        [string]$packagePath,
+        [string]$logFile  # Добавляем параметр для пути к лог-файлу
+    )
+
+    # Проверяем существование файла
+    if (Test-Path $packagePath) {
+        # Запускаем установку выбранного пакета
+        Start-Process -FilePath $packagePath -Wait
+        Add-Content -Path $logFile -Value "Установлен пакет: $packagePath"  # Записываем информацию в лог-файл
+    } else {
+        Write-Host "Файл не найден: $packagePath"
+        Add-Content -Path $logFile -Value "Файл не найден: $packagePath"  # Записываем информацию в лог-файл
+    }
+}
+
 # Инициализируем счетчик для нумерации
 $count = 1
 
@@ -44,21 +66,6 @@ $results = Find-InstallationFiles -folderPath $path -count ([ref]$count)
 
 # Выводим результаты из массива
 $results | ForEach-Object { Write-Host $_ }
-
-# Функция для установки выбранного пакета
-function Install-SelectedPackage {
-    param (
-        [string]$packagePath
-    )
-
-    # Проверяем существование файла
-    if (Test-Path $packagePath) {
-        # Запускаем установку выбранного пакета
-        Start-Process -FilePath $packagePath -Wait
-    } else {
-        Write-Host "Файл не найден: $packagePath"
-    }
-}
 
 # Бесконечный цикл для ожидания действий пользователя
 while ($true) {
@@ -76,8 +83,8 @@ while ($true) {
         # Получаем путь к выбранному пакету
         $selectedFile = $installationFiles[$choice - 1].FullName
 
-        # Вызываем функцию для установки выбранного пакета
-        Install-SelectedPackage -packagePath $selectedFile
+        # Вызываем функцию для установки выбранного пакета и передаем путь к лог-файлу
+        Install-SelectedPackage -packagePath $selectedFile -logFile $logFile
     } elseif ($choice -eq 0) {
         # Выход из бесконечного цикла при вводе 0
         break
